@@ -55,3 +55,178 @@ print(f"Total de valores faltantes no dataset: {total_faltantes}")
 
 print("\nResumo de valores faltantes:")
 resumo
+
+"""**Análise exploratória**
+
+***Histogramas, lineplots e scatterplots***
+
+*Age*
+"""
+
+df['Age'].plot(kind='hist', edgecolor='black')
+plt.title('Histograma da Feature Age')
+plt.xlabel('Idade')
+plt.ylabel('Frequência')
+plt.show()
+
+sns.lineplot(data=df['Age'])
+plt.title('Lineplot da Feature Age')
+plt.xlabel('Índice')
+plt.ylabel('Idade')
+plt.show()
+
+sns.scatterplot(x=df.index, y='Age', data=df)
+plt.title('Scatterplot da Feature Age')
+plt.xlabel('Índice')
+plt.ylabel('Idade')
+plt.show()
+
+"""*Height*"""
+
+df['Height'].plot(kind='hist', edgecolor='black')
+plt.title('Histograma da Feature Height')
+plt.xlabel('Altura')
+plt.ylabel('Frequência')
+plt.show()
+
+sns.lineplot(data=df['Height'])
+plt.title('Lineplot da Feature Height')
+plt.xlabel('Índice')
+plt.ylabel('Altura')
+plt.show()
+
+sns.scatterplot(x=df.index, y='Height', data=df)
+plt.title('Scatterplot da Feature Height')
+plt.xlabel('Índice')
+plt.ylabel('Altura')
+plt.show()
+
+"""*Weight*"""
+
+df['Weight'].plot(kind='hist', edgecolor='black')
+plt.title('Histograma da Feature Weight')
+plt.xlabel('Peso')
+plt.ylabel('Frequência')
+plt.show()
+
+sns.lineplot(data=df['Weight'])
+plt.title('Lineplot da Feature Weight')
+plt.xlabel('Índice')
+plt.ylabel('Peso')
+plt.show()
+
+sns.scatterplot(x=df.index, y='Weight', data=df)
+plt.title('Scatterplot da Feature Weight')
+plt.xlabel('Índice')
+plt.ylabel('Peso')
+plt.show()
+
+"""*FCVC (Do you usually eat vegetables in your meals?)*"""
+
+df['FCVC'].plot(kind='hist', edgecolor='black')
+plt.title('Histograma da Feature FCVC')
+plt.xlabel('FCVC')
+plt.ylabel('Frequência')
+plt.show()
+
+sns.lineplot(data=df['FCVC'])
+plt.title('Lineplot da Feature FCVC')
+plt.xlabel('Índice')
+plt.ylabel('FCVC')
+plt.show()
+
+sns.scatterplot(x=df.index, y='FCVC', data=df)
+plt.title('Scatterplot da Feature FCVC')
+plt.xlabel('Índice')
+plt.ylabel('FCVC')
+plt.show()
+
+"""*NCP (How many main meals do you have daily?)*"""
+
+df['NCP'].plot(kind='hist', edgecolor='black')
+plt.title('Histograma da Feature NCP')
+plt.xlabel('NCP')
+plt.ylabel('Frequência')
+plt.show()
+
+sns.lineplot(data=df['NCP'])
+plt.title('Lineplot da Feature NCP')
+plt.xlabel('Índice')
+plt.ylabel('NCP')
+plt.show()
+
+sns.scatterplot(x=df.index, y='NCP', data=df)
+plt.title('Scatterplot da Feature NCP')
+plt.xlabel('Índice')
+plt.ylabel('NCP')
+plt.show()
+
+"""*CH2O (How much water do you drink daily?)*"""
+
+df['CH2O'].plot(kind='hist', edgecolor='black')
+plt.title('Histograma da Feature CH2O')
+plt.xlabel('CH2O')
+plt.ylabel('Frequência')
+plt.show()
+
+sns.lineplot(data=df['CH2O'])
+plt.title('Lineplot da Feature CH2O')
+plt.xlabel('Índice')
+plt.ylabel('CH2O')
+plt.show()
+
+sns.scatterplot(x=df.index, y='CH2O', data=df)
+plt.title('Scatterplot da Feature CH2O')
+plt.xlabel('Índice')
+plt.ylabel('CH2O')
+plt.show()
+
+"""*FAF (How often do you have physical activity?)*"""
+
+df['FAF'].plot(kind='hist', edgecolor='black')
+plt.title('Histograma da Feature FAF')
+plt.xlabel('FAF')
+plt.ylabel('Frequência')
+plt.show()
+
+sns.lineplot(data=df['FAF'])
+plt.title('Lineplot da Feature FAF')
+plt.xlabel('Índice')
+plt.ylabel('FAF')
+plt.show()
+
+sns.scatterplot(x=df.index, y='FAF', data=df)
+plt.title('Scatterplot da Feature FAF')
+plt.xlabel('Índice')
+plt.ylabel('FAF')
+plt.show()
+
+"""*TUE (How much time do you use technological devices such as cell phone, videogames, television, computer and others?)*"""
+
+df['TUE'].plot(kind='hist', edgecolor='black')
+plt.title('Histograma da Feature TUE')
+plt.xlabel('TUE')
+plt.ylabel('Frequência')
+plt.show()
+
+sns.lineplot(data=df['TUE'])
+plt.title('Lineplot da Feature TUE')
+plt.xlabel('Índice')
+plt.ylabel('TUE')
+plt.show()
+
+sns.scatterplot(x=df.index, y='TUE', data=df)
+plt.title('Scatterplot da Feature TUE')
+plt.xlabel('Índice')
+plt.ylabel('TUE')
+plt.show()
+
+"""***Correlação de Pearson***"""
+
+aux=df
+numerica = aux.select_dtypes(include=np.number).columns
+correlation_matrix = aux[numerica].corr(method='pearson')
+plt.figure(figsize=(12, 10))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
+plt.title('Correlação de Pearson')
+plt.show()
