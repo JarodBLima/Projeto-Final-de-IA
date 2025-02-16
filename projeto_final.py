@@ -230,3 +230,26 @@ plt.figure(figsize=(12, 10))
 sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
 plt.title('Correlação de Pearson')
 plt.show()
+
+"""**Numerizando features categoricas**
+
+*Modificando features binárias para 0 e 1*
+"""
+
+pd.set_option('future.no_silent_downcasting', True)
+
+df['Gender'].replace({'Male': 0, 'Female': 1}, inplace=True)
+df['FAVC'].replace({'no': 0, 'yes': 1}, inplace=True) # Do you eat high caloric food frequently?
+df['SCC'].replace({'no': 0, 'yes': 1}, inplace=True) # Do you monitor the calories you eat daily?
+df['SMOKE'].replace({'no': 0, 'yes': 1}, inplace=True) # Do you smoke?
+df['family_history_with_overweight'].replace({'no': 0, 'yes': 1}, inplace=True) # Has a family member suffered or suffers from overweight?
+
+"""*Features não-binárias*"""
+
+df['CAEC'].replace({'no': 0, 'Sometimes': 1, 'Frequently': 2, 'Always': 3}, inplace=True) # Do you eat any food between meals?
+df['CALC'].replace({'no': 0, 'Sometimes': 1, 'Frequently': 2, 'Always': 3}, inplace=True) # How often do you drink alcohol?
+df['MTRANS'].replace({'Walking': 0, 'Bike': 1, 'Public_Transportation': 2, 'Motorbike': 3, 'Automobile': 4}, inplace=True) # Which transportation do you usually use?
+
+# Obesity level - Classe
+df['NObeyesdad'].replace({'Insufficient_Weight': 0, 'Normal_Weight': 1, 'Overweight_Level_I': 2, 'Overweight_Level_II': 3, 'Obesity_Type_I': 4, 'Obesity_Type_II': 5, 'Obesity_Type_III': 6}, inplace=True)
+
