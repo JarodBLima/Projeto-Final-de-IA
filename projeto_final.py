@@ -253,3 +253,143 @@ df['MTRANS'].replace({'Walking': 0, 'Bike': 1, 'Public_Transportation': 2, 'Moto
 # Obesity level - Classe
 df['NObeyesdad'].replace({'Insufficient_Weight': 0, 'Normal_Weight': 1, 'Overweight_Level_I': 2, 'Overweight_Level_II': 3, 'Obesity_Type_I': 4, 'Obesity_Type_II': 5, 'Obesity_Type_III': 6}, inplace=True)
 
+
+from imblearn.over_sampling import SMOTE  # Importe a técnica de balanceamento
+from collections import Counter
+
+# Separando a classe das features (em X e Y)
+X = df.drop(['NObeyesdad'], axis=1)
+y = df['NObeyesdad']
+
+# Identificando colunas numéricas
+numerical_cols = ['Age', 'Height', 'Weight', 'FCVC', 'NCP', 'CH2O', 'FAF', 'TUE']
+
+# --- Divisão Treino/Teste ANTES do Balanceamento ---
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+
+# --- Balanceamento (SMOTE) APENAS nos Dados de Treinamento ---
+smote = SMOTE(random_state=42)
+y_train = y_train.astype(int)  # Ensure y_train is of integer type
+X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
+
+print('Contagens de classes (treino original):', Counter(y_train))
+print('Contagens de classes (treino balanceado):', Counter(y_train_resampled))
+
+
+# --- Daqui para frente, use X_train_resampled e y_train_resampled para treinar ---
+# --- X_test e y_test NÃO são modificados! ---
+
+# Instanciando o KFold
+kfold = KFold(n_splits=10, shuffle=True, random_state=42)
+
+# Classificadores e hiperparâmetros (sem alterações)
+classifiers = {
+    'KNN': {
+        'model': KNeighborsClassifier(),
+        'param_grid': {'n_neighbors': [3, 5, 7, 9, 11, 15], 'metric': ['euclidean', 'manhattan', 'minkowski', 'cosine']}
+    },
+    'DecisionTree': {
+        'model': DecisionTreeClassifier(),
+        'param_grid': {'max_depth': [None, 5, 10, 15], 'min_samples_split': [2, 5, 10], 'min_samples_leaf': [1, 2, 4]}
+    },
+    'SVM': {
+        'model': SVC(),
+        'param_grid': {'C': [0.1, 1, 10], 'kernel': ['linear', 'rbf', 'poly'], 'gamma': ['scale', 'auto']}
+    },
+    'NaiveBayes': {
+        'model': GaussianNB(),
+        'param_grid': {}
+    }
+}
+
+# Armazenar resultados
+results = {}
+for clf_name in classifiers:
+    results[clf_name] = {'accuracy': [], 'precision': [], 'recall': [], 'f1': [], 'mse': []}
+
+# Iterar sobre os folds
+for train_index, val_index in kfold.split(X_train_resampled):  # Use X_train_resampled
+    # Agora 'train_index' e 'val_index' se referem às linhas de X_train_resampled
+    X_train_fold, X_val_fold = X_train_resampled.iloc[train_index], X_train_resampled.iloc[val_index]
+    y_train_fold, y_val_fold = y_train_resampled.iloc[train_index], y_train_resampled.iloc[val_index]
+
+
+    # --- Normalização (Validação) ---
+    scaler_val = MinMaxScaler()
+    X_train_fold_scaled = X_train_fold.copy()
+    X_val_fold_scaled = X_val_fold.copy()
+    X_train_fold_scaled.loc[:, numerical_cols] = scaler_val.fit_transform(X_train_fold.loc[:, numerical_cols])
+    X_val_fold_scaled.loc[:, numerical_cols] = scaler_val.transform(X_val_fold.loc[:, numerical_cols])
+
+
+    # Loop sobre os classificadores
+    for clf_name, clf_data in classifiers.items():
+        model = clf_data['model']
+        param_grid = clf_data['param_grid']
+
+        accs_val = []
+        par = []
+
+        # GridSearch
+        for params in ParameterGrid(param_grid):
+            model.set_params(**params)
+            model.fit(X_train_fold_scaled, y_train_fold)  # Treina com dados balanceados e normalizados
+            y_pred = model.predict(X_val_fold_scaled)   # Predição com dados balanceados e normalizados
+            acc = accuracy_score(y_val_fold, y_pred)
+            accs_val.append(acc)
+            par.append(params)
+
+        best_params = par[accs_val.index(max(accs_val))]
+
+
+        # --- Normalização (Treino Completo, APÓS Validação) ---
+        # Normalizamos o X_train_resampled COMPLETO.
+        scaler_train = MinMaxScaler()
+        X_train_resampled_scaled = X_train_resampled.copy()
+        X_test_scaled = X_test.copy() # X_test não foi balanceado
+
+        X_train_resampled_scaled.loc[:, numerical_cols] = scaler_train.fit_transform(X_train_resampled.loc[:, numerical_cols])
+        X_test_scaled.loc[:, numerical_cols] = scaler_train.transform(X_test.loc[:, numerical_cols]) #Transform no X_test original
+
+        y_train_resampled = y_train_resampled.astype(int)  # Ensure y_train is of integer type
+
+        # Treinando com os melhores hiperparâmetros e calculando métricas
+        model.set_params(**best_params)
+        model.fit(X_train_resampled_scaled, y_train_resampled) #Treina com o X_train_resampled
+        y_pred = model.predict(X_test_scaled)  # Predição no conjunto de teste (NÃO balanceado)
+
+        y_test = y_test.astype(int)  # Ensure y_train is of integer type
+
+        # Calculando as métricas (com average='weighted' para multiclasse)
+        results[clf_name]['accuracy'].append(accuracy_score(y_test, y_pred)) #y_test original
+        results[clf_name]['precision'].append(precision_score(y_test, y_pred, average='weighted', zero_division=0))
+        results[clf_name]['recall'].append(recall_score(y_test, y_pred, average='weighted', zero_division=0))
+        results[clf_name]['f1'].append(f1_score(y_test, y_pred, average='weighted', zero_division=0))
+        results[clf_name]['mse'].append(mean_squared_error(y_test, y_pred))
+
+
+
+# Resultados e Teste de Wilcoxon
+print("\nMétricas Médias (por classificador):\n")
+for clf_name, metrics in results.items():
+    print(f"--- {clf_name} ---")
+    for metric_name, values in metrics.items():
+        print(f"  {metric_name.capitalize()}: {np.mean(values):.4f}")
+
+print("\n--- Teste de Wilcoxon (Comparação entre pares de classificadores) ---\n")
+model_combinations = list(combinations(classifiers.keys(), 2))
+for model1, model2 in model_combinations:
+    print(f"Comparando {model1} vs {model2}:")
+    for metric in ['accuracy', 'precision', 'recall', 'f1', 'mse']:
+        try:
+            stat, p = wilcoxon(results[model1][metric], results[model2][metric], zero_method='zsplit')
+            print(f"  {metric.capitalize()}:")
+            print(f"    Estatística de Wilcoxon = {stat:.4f}, Valor-p = {p:.4f}")
+            if p < 0.05:
+                print(f"    Diferença estatisticamente significativa (p < 0.05) entre {model1} e {model2} para {metric}.")
+            else:
+                print(f"    Não há diferença estatisticamente significativa (p >= 0.05) entre {model1} e {model2} para {metric}.")
+        except ValueError as e:
+            print(f"    Erro ao calcular Wilcoxon para {metric}: {e}")
+            print("    Provavelmente há empates ou os arrays têm tamanhos diferentes.")
