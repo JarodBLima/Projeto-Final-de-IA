@@ -253,7 +253,166 @@ df['MTRANS'].replace({'Walking': 0, 'Bike': 1, 'Public_Transportation': 2, 'Moto
 # Obesity level - Classe
 df['NObeyesdad'].replace({'Insufficient_Weight': 0, 'Normal_Weight': 1, 'Overweight_Level_I': 2, 'Overweight_Level_II': 3, 'Obesity_Type_I': 4, 'Obesity_Type_II': 5, 'Obesity_Type_III': 6}, inplace=True)
 
+"""**Abordagem KFold (10) + normalização min-max + gridsearch com 4 algoritmos + Acurácia + DICE (Precisão) + MSE (Sensibilidade/Recall) + F1 + Wilcoxon**"""
 
+# Separando a classe das features (em X e Y)
+X = df. drop(['NObeyesdad'],axis=1)
+y = df['NObeyesdad']
+
+# Identificando colunas numéricas
+numerical_cols = ['Age', 'Height', 'Weight', 'FCVC', 'NCP', 'CH2O', 'FAF', 'TUE']
+
+# Instanciando kfold
+kfold = KFold(n_splits=10, shuffle=True, random_state=42)
+
+# Definindo os classificadores e seus hiperparâmetros
+classifiers = {
+    'KNN': {
+        'model': KNeighborsClassifier(),
+        'param_grid': {'n_neighbors': [3, 5, 7, 9, 11, 15], 'metric': ['euclidean', 'manhattan', 'minkowski', 'cosine']}
+    },
+    'DecisionTree': {
+        'model': DecisionTreeClassifier(),
+        'param_grid': {'max_depth': [None, 5, 10, 15], 'min_samples_split': [2, 5, 10], 'min_samples_leaf': [1, 2, 4]}
+    },
+    'SVM': {
+        'model': SVC(),
+        'param_grid': {'C': [0.1, 1, 10], 'kernel': ['linear', 'rbf', 'poly'], 'gamma': ['scale', 'auto']}
+    },
+    'NaiveBayes': {
+        'model': GaussianNB(),
+        'param_grid': {}  # Naive Bayes Gaussiano não tem hiperparâmetros para ajustar
+    }
+}
+
+# Armazenar resultados (um dicionário de dicionários)
+results = {}
+for clf_name in classifiers:
+    results[clf_name] = {'accuracy': [], 'precision': [], 'recall': [], 'f1': [], 'mse': []}
+
+# Iterar ao longo dos folds a partir do método kfold.split(X)
+# Praticamente todo o código deve estar identado nesse for
+for train_index, test_index in kfold.split(X):
+  X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+  y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+
+  X_trainDivided, X_val, y_trainDivided, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=42)
+
+  # Normalização (Validação)
+  scaler_val = MinMaxScaler()
+  X_trainDivided_scaled = X_trainDivided.copy()
+  X_val_scaled = X_val.copy()
+
+  X_trainDivided_scaled[numerical_cols] = scaler_val.fit_transform(X_trainDivided[numerical_cols])
+  X_val_scaled[numerical_cols] = scaler_val.transform(X_val[numerical_cols])
+
+  # Loop através dos classificadores
+  for clf_name, clf_data in classifiers.items():
+      model = clf_data['model']
+      param_grid = clf_data['param_grid']
+
+      accs_val = []
+      par = []
+
+      y_trainDivided = y_trainDivided.astype(int) # Ensure y_trainDivided is of the correct type
+      y_val = y_val.astype(int)  # Ensure y_val is of integer type
+
+      # GridSearch
+      for params in ParameterGrid(param_grid):
+        model.set_params(**params)  # Define os hiperparâmetros
+        model.fit(X_trainDivided_scaled, y_trainDivided) # treinado no conjunto de treino dividido com dados normalizados
+        y_pred = model.predict(X_val_scaled) # predições no conjunto de validação com dados normalizados
+        acc = accuracy_score(y_val, y_pred)
+        # A combinação entre as listas de acurácias e parâmetros é salva
+        accs_val.append(acc)
+        par.append(params)
+
+      best_params = par[accs_val.index(max(accs_val))]
+      
+      print(f"Melhores hiperparâmetros para {clf_name}: {best_params}") # Informa-nos os melhores hiperparâmetros para esse classificador.
+
+      # Normalização (Treino Completo)
+      scaler_train = MinMaxScaler()
+      X_train_scaled = X_train.copy()
+      X_test_scaled = X_test.copy()
+
+      X_train_scaled[numerica] = scaler_train.fit_transform(X_train[numerica])
+      X_test_scaled[numerica] = scaler_train.transform(X_test[numerica])
+
+      y_train = y_train.astype(int)  # Ensure y_train is of integer type
+
+      # Instanciado com os melhores hiperparâmetros
+      model.set_params(**best_params)
+      model.fit(X_train_scaled, y_train) # treina o modelo com o conjunto de treinamento COMPLETO com dados normalizados
+      y_pred = model.predict(X_test_scaled) # predições no conjunto de testes
+
+      y_test = y_test.astype(int)  # Ensure y_train is of integer type
+
+
+      # --- CÁLCULO DAS MÉTRICAS (IMPRESSÃO PARA DEBUG) ---
+      accuracy = accuracy_score(y_test, y_pred)
+      precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+      recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+      f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+      mse = mean_squared_error(y_test, y_pred)
+
+      """ # DEBUG
+      print(f"--- Fold {len(results[clf_name]['accuracy']) + 1}, Modelo: {clf_name} ---")
+      print(f"  Acurácia: {accuracy:.4f}")
+      print(f"  Precisão: {precision:.4f}")
+      print(f"  Recall: {recall:.4f}")
+      print(f"  F1: {f1:.4f}")
+      print(f"  MSE: {mse:.4f}")
+      print(f"  y_pred: {y_pred}")  # IMPRIMA AS PREDIÇÕES!
+      print(f"  y_test: {y_test.values}")  # IMPRIMA OS VALORES REAIS!
+      """
+
+      results[clf_name]['accuracy'].append(accuracy)
+      results[clf_name]['precision'].append(precision)
+      results[clf_name]['recall'].append(recall)
+      results[clf_name]['f1'].append(f1)
+      results[clf_name]['mse'].append(mse)
+
+""" # Para debug
+print("\nConteúdo completo de 'results' após o KFold:")
+import pprint  # Para impressão bonita de dicionários
+pprint.pprint(results)
+"""
+
+# --- Resultados e Teste de Wilcoxon ---
+print("\nMétricas Médias (por classificador):\n")
+for clf_name, metrics in results.items():
+    print(f"--- {clf_name} ---")
+    for metric_name, values in metrics.items():
+        print(f"  {metric_name.capitalize()}: {np.mean(values):.4f}")
+
+print("\n--- Teste de Wilcoxon (Comparação entre pares de classificadores) ---\n")
+
+model_combinations = list(combinations(classifiers.keys(), 2))  # Todas as combinações de 2 modelos
+
+for model1, model2 in model_combinations:
+    print(f"Comparando {model1} vs {model2}:")
+    for metric in ['accuracy', 'precision', 'recall', 'f1', 'mse']:
+        # O teste de Wilcoxon precisa que os arrays tenham o mesmo tamanho (número de folds)
+        # e que não existam empates perfeitos (todas as diferenças = 0).
+        # Se houver empates, o teste pode gerar um erro ou um aviso.
+        # A correção 'zsplit' divide os valores de z entre as observações empatadas.
+        try:
+            stat, p = wilcoxon(results[model1][metric], results[model2][metric], zero_method='zsplit')
+            print(f"  {metric.capitalize()}:")
+            print(f"    Estatística de Wilcoxon = {stat:.4f}, Valor-p = {p:.4f}")
+            if p < 0.05:
+                print(f"    Diferença estatisticamente significativa (p < 0.05) entre {model1} e {model2} para {metric}.")
+            else:
+                print(f"    Não há diferença estatisticamente significativa (p >= 0.05) entre {model1} e {model2} para {metric}.")
+
+        except ValueError as e:
+            print(f"    Erro ao calcular Wilcoxon para {metric}: {e}")
+            print("    Provavelmente há empates ou os arrays têm tamanhos diferentes.")
+
+"""**EXTRA**"""
+
+# Versão balanceada
 from imblearn.over_sampling import SMOTE  # Importe a técnica de balanceamento
 from collections import Counter
 
